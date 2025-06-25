@@ -31,7 +31,8 @@ afterAll(async () => {
   await app.close();
 });
 
-test('Can refresh access token using refresh cookie', async () => {
+test('Can refresh access token using refreshToken cookie', async () => {
+  // Step 1: Login and get the refreshToken cookie
   const loginRes = await request(app.server)
     .post('/login')
     .type('form')
@@ -46,10 +47,33 @@ test('Can refresh access token using refresh cookie', async () => {
 
   expect(refreshCookie).toBeDefined();
 
+  // Step 2: Hit /refresh with the cookie
   const refreshRes = await request(app.server)
     .post('/refresh')
     .set('Cookie', refreshCookie);
 
   expect(refreshRes.statusCode).toBe(200);
   expect(refreshRes.body).toHaveProperty('accessToken');
+
+  // Step 3: Decode and verify new token
+  const jwt = require('jsonwebtoken');
+  const decoded = jwt.decode(refreshRes.body.accessToken);
+
+  expect(decoded).toHaveProperty('sub');
+  expect(decoded).toHaveProperty('email', 'test@example.com');
+});
+test('Returns 401 if refreshToken cookie is missing', async () => {
+  const res = await request(app.server)
+    .post('/refresh');
+
+  expect(res.statusCode).toBe(401);
+  expect(res.body).toHaveProperty('error', 'Missing refresh token');
+});
+
+test('Returns 401 if refreshToken is invalid', async () => {
+  const res = await request(app.server)
+    .post('/refresh')
+    .set('Cookie', 'refreshToken=invalidtoken');  // Simulate invalid token     
+  expect(res.statusCode).toBe(401);
+  expect(res.body).toHaveProperty('error', 'Invalid or expired token');
 });
