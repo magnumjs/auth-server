@@ -56,7 +56,7 @@ module.exports = async function (app) {
       // Form-based login (e.g. from federated login UI)
       reply
         .setCookie("refreshToken", refreshToken, cookieOptions)
-        .redirect(returnUrl);
+        .redirect(`${returnUrl}?token=${accessToken}`);
     } else {
       // API/JSON login (e.g. frontend SPA or E2E test)
       reply

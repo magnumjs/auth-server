@@ -8,6 +8,8 @@ const prismaPlugin = require("./plugins/prisma");
 const oauthPlugin = require("./plugins/oauth");
 const loginRoutes = require("./routes/login");
 const refreshRoutes = require("./routes/refresh");
+const meRoutes = require("./routes/me");
+const logoutRoutes = require("./routes/logout");
 const formBody = require("@fastify/formbody");
 const fastifyCookie = require("@fastify/cookie");
 
@@ -36,6 +38,8 @@ async function buildApp() {
   app.register(oauthPlugin);
   app.register(loginRoutes);
   app.register(refreshRoutes);
+  app.register(meRoutes);
+  app.register(logoutRoutes);
 
   return app;
 }

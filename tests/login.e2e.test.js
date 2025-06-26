@@ -58,12 +58,25 @@ test("Login via form redirects with refreshToken cookie set", async () => {
     .send({
       email: "test@example.com",
       password: "testpass",
-      returnUrl: "/dashboard",
+      returnUrl: 'https://consumer.example.com/dashboard',
     });
 
-  // Expect a 302 redirect
+ // Expect a redirect
   expect(res.statusCode).toBe(302);
-  expect(res.headers.location).toBe("/dashboard");
+  const redirectUrl = res.headers.location;
+  expect(redirectUrl).toMatch(/^https:\/\/consumer\.example\.com\/dashboard\?token=/);
+
+  // Extract token from query param
+  const url = new URL(redirectUrl);
+  const token = url.searchParams.get('token');
+  expect(token).toBeDefined();
+
+  // Decode and inspect token contents
+  const decoded = jwt.decode(token);
+  expect(decoded).toHaveProperty('email', 'test@example.com');
+  expect(decoded).toHaveProperty('roles');
+  expect(Array.isArray(decoded.roles)).toBe(true);
+  // ✅ Access token is in the response body
 
   // Check that refreshToken cookie is set
   const cookies = res.headers["set-cookie"];
