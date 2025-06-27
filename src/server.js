@@ -6,6 +6,7 @@ const path = require("path");
 const jwtPlugin = require("./plugins/jwt");
 const prismaPlugin = require("./plugins/prisma");
 const oauthPlugin = require("./plugins/oauth");
+const swaggerPlugin = require("./plugins/swagger");
 const loginRoutes = require("./routes/login");
 const refreshRoutes = require("./routes/refresh");
 const meRoutes = require("./routes/me");
@@ -17,6 +18,9 @@ async function buildApp() {
   const envFilepath = process.env.NODE_ENV === "test" ? ".env.test" : ".env";
 
   dotenv.config({ path: envFilepath });
+
+  const JWT_SECRET = process.env.JWT_SECRET || "super-secret";
+  const COOKIE_NAME = "auth_token";
 
   const app = Fastify({
     // logger: true, // Enable detailed logs
@@ -33,7 +37,9 @@ async function buildApp() {
     root: path.join(__dirname, "views"),
   });
 
+
   app.register(jwtPlugin);
+  app.register(swaggerPlugin);
   app.register(prismaPlugin);
   app.register(oauthPlugin);
   app.register(loginRoutes);

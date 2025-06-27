@@ -6,6 +6,7 @@ module.exports = async function (app) {
     "/me",
     { preValidation: [fastify.authenticate] },
     async (request, reply) => {
+      
       const user = await prisma.user.findUnique({
         where: { id: request.user.sub },
         select: {

@@ -3,25 +3,13 @@ const buildApp = require("../src/server"); // make your server exportable
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-
+const main = require("../prisma/seed"); // Ensure this file seeds the database
 const prisma = new PrismaClient();
 
 let app;
-let password;
 
 beforeAll(async () => {
-  password = await bcrypt.hash("testpass", 10);
-
-  await prisma.user.upsert({
-    where: { email: "test@example.com" },
-    update: {},
-    create: {
-      email: "test@example.com",
-      password,
-      roles: ["USER"],
-    },
-  });
-
+  await main().finally(() => prisma.$disconnect());
   console.log("✅ Seeded test user");
 
   app = await buildApp();
@@ -32,10 +20,19 @@ afterAll(async () => {
   await app.close();
 });
 
+test("GET /login renders login page for tenant", async () => {
+  const res = await request(app.server).get(
+    "/login?tenant=ConsumerApp&returnUrl=http://localhost:4000/dashboard"
+  );
+  expect(res.statusCode).toBe(200);
+  expect(res.text).toMatch(/Login - ConsumerApp/);
+});
+
 test("Login sets refresh token cookie and returns access token", async () => {
   const res = await request(app.server).post("/login").send({
     email: "test@example.com",
     password: "testpass",
+    tenant: "ConsumerApp",
     returnUrl: "/",
   });
 
@@ -51,6 +48,81 @@ test("Login sets refresh token cookie and returns access token", async () => {
   expect(refreshCookie).toBeDefined();
 });
 
+test("Login with invalid tenant returns 400", async () => { 
+  const res = await request(app.server).post("/login").send({ 
+    email: "test@example.com",    
+    password: "testpass",    
+    tenant: "InvalidTenant",    
+    returnUrl: "http://localhost:3000/dashboard",  
+  }); 
+  // Expect a 401 Unauthorized response 
+  expect(res.statusCode).toBe(400); 
+  expect(res.body.error).toBe("Invalid tenant"); 
+});
+
+test("Login with invalid returnUrl returns 200 for non form", async () => {
+  const res = await request(app.server).post("/login").send({
+    email: "test@example.com",
+    password: "testpass",    
+    tenant: "ConsumerApp",    
+    returnUrl: "/",  
+  });
+  // Expect a 401 Unauthorized response
+  expect(res.statusCode).toBe(200);
+  expect(res.body.accessToken).toBeDefined();
+});
+
+test("Login with invalid returnUrl returns 200 for form", async () => {
+  const res = await request(app.server).post("/login")
+  .type("form") // This makes it application/x-www-form-urlencoded
+  .send({
+    email: "test@example.com",
+    password: "testpass",    
+    tenant: "ConsumerApp",    
+    returnUrl: "/",  
+  });
+  // Expect a 302 redirect response
+  expect(res.statusCode).toBe(302);
+  const redirectUrl = res.headers.location;
+  // expect(redirectUrl).toMatch(/^\/\?token=/);
+
+  // Extract token from query param
+  const url = new URL(redirectUrl);
+  const token = url.searchParams.get("token");
+  expect(token).toBeDefined();});
+
+
+test("Login via form redirects with refreshToken cookie set", async () => {
+  const res = await request(app.server)
+    .post("/login")
+    .type("form") // This makes it application/x-www-form-urlencoded
+    .send({       
+      email: "test@example.com",      
+      password: "testpass",      
+      returnUrl: "http://localhost:3000/dashboard",
+    });
+
+  // Expect a redirect
+  expect(res.statusCode).toBe(302);
+  const redirectUrl = res.headers.location;
+  expect(redirectUrl).toMatch(/^http:\/\/localhost:3000\/dashboard\?token=/);
+
+  // Extract token from query param
+  const url = new URL(redirectUrl);
+  const token = url.searchParams.get("token");
+  expect(token).toBeDefined();
+});
+
+test("Login via form with invalid credentials returns 401", async () => {
+  const res = await request(app.server).post("/login").type("form").send({
+    email: "test@example.com",
+    password: "wrongpass", // Invalid password
+    returnUrl: "http://localhost:3000/dashboard",
+  });
+  // Expect a 401 Unauthorized response
+  expect(res.statusCode).toBe(401);
+  expect(res.body.error).toBe("Invalid credentials");
+});
 test("Login via form redirects with refreshToken cookie set", async () => {
   const res = await request(app.server)
     .post("/login")
@@ -58,23 +130,25 @@ test("Login via form redirects with refreshToken cookie set", async () => {
     .send({
       email: "test@example.com",
       password: "testpass",
-      returnUrl: 'https://consumer.example.com/dashboard',
+      returnUrl: "https://consumer.example.com/dashboard",
     });
 
- // Expect a redirect
+  // Expect a redirect
   expect(res.statusCode).toBe(302);
   const redirectUrl = res.headers.location;
-  expect(redirectUrl).toMatch(/^https:\/\/consumer\.example\.com\/dashboard\?token=/);
+  expect(redirectUrl).toMatch(
+    /^https:\/\/consumer\.example\.com\/dashboard\?token=/
+  );
 
   // Extract token from query param
   const url = new URL(redirectUrl);
-  const token = url.searchParams.get('token');
+  const token = url.searchParams.get("token");
   expect(token).toBeDefined();
 
   // Decode and inspect token contents
   const decoded = jwt.decode(token);
-  expect(decoded).toHaveProperty('email', 'test@example.com');
-  expect(decoded).toHaveProperty('roles');
+  expect(decoded).toHaveProperty("email", "test@example.com");
+  expect(decoded).toHaveProperty("roles");
   expect(Array.isArray(decoded.roles)).toBe(true);
   // ✅ Access token is in the response body
 
@@ -87,18 +161,18 @@ test("Login via form with invalid credentials returns 401", async () => {
   const res = await request(app.server).post("/login").type("form").send({
     email: "test@example.com",
     password: "wrongpass", // Invalid password
-    returnUrl: "/dashboard",
+    returnUrl: "http://localhost:3000/dashboard",
   });
   // Expect a 401 Unauthorized response
   expect(res.statusCode).toBe(401);
-  expect(res.body.error).toBe("Invalid password");
+  expect(res.body.error).toBe("Invalid credentials");
 });
 
 test("Access token contains correct user claims", async () => {
   const res = await request(app.server).post("/login").send({
     email: "test@example.com",
     password: "testpass",
-    returnUrl: "/",
+    returnUrl: "http://localhost:3000/dashboard",
   });
 
   const accessToken = res.body.accessToken;
@@ -119,11 +193,11 @@ test("Login via form with non-existent user returns 401", async () => {
   const res = await request(app.server).post("/login").type("form").send({
     email: "test@example.com", // Existing email
     password: "wrongpass", // Invalid password
-    returnUrl: "/dashboard",
+    returnUrl: "http://localhost:3000/dashboard",
   });
   // Expect a 401 Unauthorized response
   expect(res.statusCode).toBe(401);
-  expect(res.body.error).toBe("Invalid password");
+  expect(res.body.error).toBe("Invalid credentials");
 });
 test("Login via form with missing fields returns 400", async () => {
   const res = await request(app.server).post("/login").type("form").send({
@@ -133,7 +207,7 @@ test("Login via form with missing fields returns 400", async () => {
   });
   // Expect a 400 Bad Request response
   expect(res.statusCode).toBe(401);
-  expect(res.body.error).toBe("Invalid email");
+  expect(res.body.error).toBe("Invalid credentials");
 });
 test("Login via form with missing password returns 400", async () => {
   const res = await request(app.server).post("/login").type("form").send({
@@ -143,5 +217,5 @@ test("Login via form with missing password returns 400", async () => {
   });
   // Expect a 400 Bad Request response
   expect(res.statusCode).toBe(401);
-  expect(res.body.error).toBe("Invalid password");
+  expect(res.body.error).toBe("Invalid credentials");
 }); // End of the test block

@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html>
-<head><title>Login</title></head>
-<body>
-  <form action="/login?returnUrl=<%= encodeURIComponent(returnUrl) %>" method="post">
-    <label>Email:</label>
-    <input type="email" name="email" required />
-    <label>Password:</label>
-    <input type="password" name="password" required />
-    <button type="submit">Login</button>
-  </form>
-</body>
+  <head><title>Login - <%= tenant %></title></head>
+  <body>
+    <h1>Login - <%= tenant %></h1>
+    <form method="POST" action="/login" id="loginForm">
+      <input type="hidden" name="tenant" value="<%= tenant %>" />
+      <input type="hidden" name="returnUrl" value="<%= returnUrl %>" />
+      <input autocomplete="email" name="email" placeholder="email" required />
+      <input autocomplete="current-password" name="password" type="password" placeholder="password" required />
+      <button type="submit">Login</button>
+    </form>
+  </body>
 </html>

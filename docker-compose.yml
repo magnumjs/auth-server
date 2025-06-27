@@ -17,9 +17,9 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - .:/auth-server
-      - /node_modules
-      - ./prisma:/prisma
+      - .:/app
+      # - /app/node_modules
+      - ./prisma:/app/prisma
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/authdb
       JWT_SECRET: super-secret
