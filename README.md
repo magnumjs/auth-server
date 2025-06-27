@@ -1,6 +1,7 @@
 # Federated Login Server
 
-A lightweight, modular federated login service built with Fastify, supporting:
+A lightweight, modular federated login service that integrates with a **[federated tenant-based auth client](https://github.com/magnumjs/auth-client-sample)**.  
+built with Fastify, supporting:
 
 - JWT-based login and session management
 - Secure password hashing (bcrypt)
