@@ -21,7 +21,7 @@ built with Fastify, supporting:
 - ✅ Short-lived access token (15m)
 - ✅ `/refresh` endpoint for new access tokens
 - ✅ `/me` endpoint to return current user info
-- ✅ `/docs` endpoint to show swapper API
+- ✅ `/docs` endpoint to show swagger API
 - ✅ Login form that redirects using `returnUrl`
 - ✅ Form + API login both supported
 - ✅ End-to-end tests with supertest
